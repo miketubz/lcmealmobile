@@ -533,6 +533,11 @@ const bmiResultEl = document.getElementById("bmiResult");
 const heroTitleEl = document.querySelector(".hero h1");
 const themeToggleBtn = document.getElementById("themeToggle");
 const planCountHintEl = document.getElementById("planCountHint");
+const installIosBtn = document.getElementById("installIosBtn");
+const installAndroidBtn = document.getElementById("installAndroidBtn");
+const installStatusEl = document.getElementById("installStatus");
+
+let deferredInstallPrompt = null;
 
 
 const THEME_PREFERENCE_KEY = "lc_meal_planner_theme";
@@ -895,9 +900,6 @@ function updatePlanCountHint() {
   const estimated = getEstimatedWeeklyCombinations(countryEl.value);
   planCountHintEl.textContent = `${formatLargeCount(estimated)} possible weekly menu combinations`;
 }
-
-function getMealPlan(country) {
-
 function updateIosInstallHint() {
   const hintEl = document.getElementById("iosInstallHint");
   const dismissBtn = document.getElementById("dismissIosInstallHint");
@@ -931,6 +933,63 @@ function updateIosInstallHint() {
     dismissBtn.dataset.bound = "1";
   }
 }
+
+function setupInstallButtons() {
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+  if (installStatusEl) {
+    installStatusEl.textContent = isStandalone
+      ? "App is already installed on this device."
+      : "Tap Install on iOS or Install on Android.";
+  }
+
+  if (installIosBtn) {
+    installIosBtn.addEventListener("click", () => {
+      alert(
+        isIOS
+          ? "Install on iPhone: open this page in Safari, tap Share, then tap Add to Home Screen."
+          : "For iOS install, open this page on iPhone/iPad in Safari, then tap Share > Add to Home Screen."
+      );
+    });
+  }
+
+  if (installAndroidBtn) {
+    installAndroidBtn.addEventListener("click", async () => {
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        const choiceResult = await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        if (installStatusEl) {
+          installStatusEl.textContent = choiceResult.outcome === "accepted"
+            ? "Android install started."
+            : "Install canceled. You can tap Install on Android anytime.";
+        }
+        return;
+      }
+
+      alert("On Android Chrome: tap browser menu (three dots) and choose Install app or Add to Home screen.");
+    });
+  }
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    if (installStatusEl) {
+      installStatusEl.textContent = "Android install is ready. Tap Install on Android.";
+    }
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    if (installStatusEl) {
+      installStatusEl.textContent = "App installed successfully.";
+    }
+  });
+}
+
+function getMealPlan(country) {
   const basePlan = MEAL_PLANS[country] ?? MEAL_PLANS.UK;
   const generatedPlan = buildGeneratedWeeklyPlan(basePlan);
   return shufflePlan(generatedPlan);
@@ -1733,6 +1792,7 @@ if (themeToggleBtn) {
 loadPreferences();
 updatePlanCountHint();
 updateIosInstallHint();
+setupInstallButtons();
 updateBMI();
 if (!String(dailyTargetEl.value).trim()) {
   autoFillCalories();
