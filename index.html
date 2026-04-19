@@ -14,6 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <main class="app-shell">
@@ -182,6 +183,12 @@
     <section id="summary" class="summary hidden" aria-live="polite"></section>
 
     <section id="macroSummary" class="macro-summary hidden" aria-live="polite"></section>
+
+    <div class="export-row hidden" id="exportRow">
+      <button id="exportPdfBtn" type="button" class="secondary export-btn" disabled>Export PDF</button>
+      <button id="exportExcelBtn" type="button" class="secondary export-btn" disabled>Export Excel</button>
+    </div>
+
     <div id="printArea">
       <section id="planOutput" class="plan-grid"></section>
       <section id="groceryOutput" class="grocery hidden"></section>

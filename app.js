@@ -521,6 +521,8 @@ const clearPrefBtn = document.getElementById("clearPrefBtn");
 const downloadTxtBtn = document.getElementById("downloadTxtBtn");
 const downloadCsvBtn = document.getElementById("downloadCsvBtn");
 const exportPdfBtn = document.getElementById("exportPdfBtn");
+const exportExcelBtn = document.getElementById("exportExcelBtn");
+const exportRowEl = document.getElementById("exportRow");
 const sexEl = document.getElementById("sex");
 const ageEl = document.getElementById("age");
 const heightEl = document.getElementById("height");
@@ -1512,6 +1514,40 @@ function buildCsvContent(result) {
   return rows.map((row) => row.map(csvEscape).join(",")).join("\n");
 }
 
+function exportToExcel(result) {
+  if (!window.XLSX) {
+    alert("Excel export library is not loaded.");
+    return;
+  }
+  const wb = window.XLSX.utils.book_new();
+
+  // Sheet 1: Weekly Meal Plan
+  const planRows = [["Day", "Meal", "Suggestion", "Portion", "Est. kcal", "Daily Target (kcal)"]];
+  Object.entries(result.plan).forEach(([day, meals]) => {
+    Object.entries(meals).forEach(([mealName, suggestion]) => {
+      const est = result.calorieProfile[mealName] ?? 500;
+      const portion = PORTION_BY_MEAL[mealName] ?? "1 serving";
+      planRows.push([day, mealName, suggestion, portion, est, result.dailyTarget]);
+    });
+  });
+  const planSheet = window.XLSX.utils.aoa_to_sheet(planRows);
+  planSheet["!cols"] = [{ wch: 12 }, { wch: 12 }, { wch: 55 }, { wch: 30 }, { wch: 12 }, { wch: 18 }];
+  window.XLSX.utils.book_append_sheet(wb, planSheet, "Meal Plan");
+
+  // Sheet 2: Grocery List
+  const groceryRows = [["Category", "Item"]];
+  Object.entries(result.groceries).forEach(([category, items]) => {
+    [...items].sort().forEach((item) => groceryRows.push([category, item]));
+  });
+  const grocerySheet = window.XLSX.utils.aoa_to_sheet(groceryRows);
+  grocerySheet["!cols"] = [{ wch: 20 }, { wch: 30 }];
+  window.XLSX.utils.book_append_sheet(wb, grocerySheet, "Grocery List");
+
+  const timestamp = getTimestamp();
+  const country = result.country.toLowerCase().replace(/\s+/g, "_");
+  window.XLSX.writeFile(wb, `lc_meal_plan_${country}_${timestamp}.xlsx`);
+}
+
 function downloadText(content, fileName, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -1567,6 +1603,9 @@ function generatePlan() {
   state.lastResult = { country, goal, dailyTarget, carbMode: carbModeEl ? carbModeEl.value : "moderate", mealSchedule: mealScheduleEl ? mealScheduleEl.value : "3", plan, calorieProfile, groceries };
 
   renderResult(country, goal, dailyTarget, plan, calorieProfile, groceries);
+  if (exportRowEl) {
+    exportRowEl.classList.remove("hidden");
+  }
   if (downloadTxtBtn) {
     downloadTxtBtn.disabled = false;
   }
@@ -1575,6 +1614,9 @@ function generatePlan() {
   }
   if (exportPdfBtn) {
     exportPdfBtn.disabled = false;
+  }
+  if (exportExcelBtn) {
+    exportExcelBtn.disabled = false;
   }
 }
 
@@ -1664,119 +1706,18 @@ if (downloadCsvBtn) {
   });
 }
 
+if (exportExcelBtn) {
+  exportExcelBtn.addEventListener("click", () => {
+    if (state.lastResult) {
+      exportToExcel(state.lastResult);
+    }
+  });
+}
+
 if (exportPdfBtn) {
   exportPdfBtn.addEventListener("click", () => {
     if (!state.lastResult) return;
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-      alert("PDF export library is not loaded.");
-      return;
-    }
-    const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-  const result = state.lastResult;
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 15;
-  const colW = pageW - margin * 2;
-  let y = margin;
-
-  function checkPage(needed) {
-    if (y + needed > pageH - margin) {
-      doc.addPage();
-      y = margin;
-    }
-  }
-
-  function writeLine(text, opts) {
-    const { size = 10, bold = false, color = [30, 30, 30], indent = 0 } = opts || {};
-    doc.setFontSize(size);
-    doc.setFont("helvetica", bold ? "bold" : "normal");
-    doc.setTextColor(...color);
-    const lines = doc.splitTextToSize(text, colW - indent);
-    lines.forEach((line) => {
-      checkPage(6);
-      doc.text(line, margin + indent, y);
-      y += size * 0.45;
-    });
-  }
-
-  function drawRule(thickness, grayVal) {
-    doc.setDrawColor(grayVal ?? 180);
-    doc.setLineWidth(thickness ?? 0.3);
-    doc.line(margin, y, pageW - margin, y);
-    y += 3;
-  }
-
-  // ---- Header ----
-  writeLine("LOW-CARB PLANNER", { size: 9, bold: false, color: [80, 100, 160] });
-  y += 2;
-  writeLine("Your LC Meal Companion", { size: 18, bold: true, color: [20, 20, 20] });
-  y += 2;
-  writeLine(`Cuisine Style: ${result.country}  |  Goal: ${result.goal}  |  Daily target: ${result.dailyTarget} kcal`, { size: 9, color: [100, 100, 100] });
-  y += 4;
-  drawRule(0.5, 150);
-  y += 2;
-
-  // ---- Meal Plan ----
-  writeLine("WEEKLY MEAL PLAN", { size: 11, bold: true, color: [31, 75, 143] });
-  y += 3;
-
-  const calorieProfile = result.calorieProfile;
-  Object.entries(result.plan).forEach(([day, meals]) => {
-    checkPage(30);
-    writeLine(day.toUpperCase(), { size: 11, bold: true, color: [20, 20, 20] });
-    y += 1;
-    drawRule(0.2, 200);
-    let dayTotal = 0;
-    Object.entries(meals).forEach(([mealName, suggestion]) => {
-      const est = calorieProfile[mealName] ?? 500;
-      const portion = PORTION_BY_MEAL[mealName] ?? "1 serving";
-      dayTotal += est;
-      writeLine(`${mealName}`, { size: 9, bold: true, color: [80, 80, 80], indent: 2 });
-      y += 0.5;
-      writeLine(suggestion, { size: 10, bold: false, color: [20, 20, 20], indent: 4 });
-      writeLine(`Portion: ${portion}  |  Est. ${est} kcal`, { size: 8, color: [120, 120, 120], indent: 4 });
-      y += 2;
-    });
-    writeLine(`Daily estimated total: ${dayTotal} kcal  (target: ${result.dailyTarget} kcal)`, { size: 8, bold: true, color: [31, 75, 143], indent: 2 });
-    y += 5;
-  });
-
-  // ---- Grocery List ----
-  checkPage(20);
-  drawRule(0.5, 150);
-  y += 2;
-  writeLine("WEEKLY GROCERY LIST", { size: 11, bold: true, color: [31, 75, 143] });
-  y += 3;
-
-  const mergedGroceries = Object.assign({}, result.groceries);
-  mergedGroceries.Other = [
-    ...(result.groceries.Other || []),
-    ...state.customGroceries.filter((item) => !(result.groceries.Other || []).includes(item))
-  ];
-
-  Object.entries(mergedGroceries).forEach(([category, items]) => {
-    if (!items.length) return;
-    checkPage(12);
-    writeLine(category, { size: 10, bold: true, color: [40, 40, 40] });
-    y += 1;
-    [...items].sort().forEach((item) => {
-      checkPage(6);
-      writeLine(`• ${item}`, { size: 9, color: [50, 50, 50], indent: 3 });
-    });
-    y += 3;
-  });
-
-  // ---- Footer ----
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(7);
-    doc.setTextColor(160, 160, 160);
-    doc.text(`Your LC Meal Companion  |  Page ${i} of ${pageCount}`, margin, pageH - 8);
-  }
-
-    doc.save(`lc_meal_plan_${getTimestamp()}.pdf`);
+    window.print();
   });
 }
 
