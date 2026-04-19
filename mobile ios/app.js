@@ -897,40 +897,6 @@ function updatePlanCountHint() {
 }
 
 function getMealPlan(country) {
-
-function updateIosInstallHint() {
-  const hintEl = document.getElementById("iosInstallHint");
-  const dismissBtn = document.getElementById("dismissIosInstallHint");
-
-  if (!hintEl) {
-    return;
-  }
-
-  const dismissed = localStorage.getItem("iosInstallHintDismissed") === "1";
-  if (dismissed) {
-    hintEl.classList.add("hidden");
-    return;
-  }
-
-  const ua = navigator.userAgent || "";
-  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
-  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
-
-  if (isIOS && isSafari && !isStandalone) {
-    hintEl.classList.remove("hidden");
-  } else {
-    hintEl.classList.add("hidden");
-  }
-
-  if (dismissBtn && !dismissBtn.dataset.bound) {
-    dismissBtn.addEventListener("click", () => {
-      localStorage.setItem("iosInstallHintDismissed", "1");
-      hintEl.classList.add("hidden");
-    });
-    dismissBtn.dataset.bound = "1";
-  }
-}
   const basePlan = MEAL_PLANS[country] ?? MEAL_PLANS.UK;
   const generatedPlan = buildGeneratedWeeklyPlan(basePlan);
   return shufflePlan(generatedPlan);
@@ -1732,7 +1698,6 @@ if (themeToggleBtn) {
 
 loadPreferences();
 updatePlanCountHint();
-updateIosInstallHint();
 updateBMI();
 if (!String(dailyTargetEl.value).trim()) {
   autoFillCalories();
