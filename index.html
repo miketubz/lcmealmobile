@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Low-Carb Weekly Planner</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1f4b8f">
+
+  <!-- iOS PWA Support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LC Planner">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <p class="eyebrow">
+        <img src="icon.png" alt="Planner icon" class="eyebrow-icon">
+        <span>Low-Carb Planner</span>
+      </p>
+      <h1></h1>
+      <p class="subtitle">
+        Plan a full week of low-carb meals with smart portions and calorie guidance.
+      </p>
+
+      <div class="theme-toggle" role="group" aria-label="Theme">
+        <span class="theme-toggle-label">Theme</span>
+        <button id="themeToggle" type="button" class="theme-toggle-btn" aria-pressed="false">
+          <span class="theme-toggle-track">
+            <span class="theme-toggle-option theme-light">Light</span>
+            <span class="theme-toggle-option theme-dark">Dark</span>
+            <span class="theme-toggle-thumb" aria-hidden="true"></span>
+          </span>
+        </button>
+      </div>
+
+    </header>
+
+    <section class="controls" aria-label="Planner controls">
+      <div class="controls-row">
+        <div class="field-group">
+          <label for="country">Cuisine Style</label>
+          <select id="country" name="country">
+            <option value="Australia">Australia</option>
+            <option value="Canada">Canada</option>
+            <option value="China">China</option>
+            <option value="India">India</option>
+            <option value="Japan">Japan</option>
+            <option value="Korean">Korean</option>
+            <option value="Mediterranean">Mediterranean</option>
+            <option value="Philippines">Philippines</option>
+            <option value="US">US</option>
+            <option value="UK" selected>UK</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label for="goal">Goal</label>
+          <select id="goal" name="goal">
+            <option value="Lose weight">Lose weight</option>
+            <option value="Maintain" selected>Maintain</option>
+            <option value="Gain muscle">Gain muscle</option>
+          </select>
+        </div>
+      </div>
+
+
+
+      <div class="controls-row single-column">
+        <div class="field-group">
+          <label for="mealSchedule">Meal schedule</label>
+          <select id="mealSchedule" name="mealSchedule">
+            <option value="3" selected>3 meals a day</option>
+            <option value="2">2 meals a day</option>
+            <option value="1">OMAD (1 meal a day)</option>
+          </select>
+          <p class="hint" id="mealScheduleHint">Choose how your daily calories are distributed across the day.</p>
+        </div>
+      </div>
+
+      <div class="controls-row single-column">
+        <div class="field-group">
+          <label for="carbMode">Low-carb mode</label>
+          <select id="carbMode" name="carbMode">
+            <option value="strict">Strict</option>
+            <option value="moderate" selected>Moderate</option>
+          </select>
+          <p class="hint" id="carbModeHint">Strict keeps carbs lower. Moderate allows more flexibility.</p>
+        </div>
+      </div>
+
+
+      <div class="controls-row">
+        <div class="field-group">
+          <label for="sex">Sex</label>
+          <select id="sex" name="sex">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label for="age">Age</label>
+          <input id="age" name="age" type="number" min="15" max="80" step="1" placeholder="e.g. 30">
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <div class="field-group">
+          <label for="height">Height (cm)</label>
+          <input id="height" name="height" type="number" min="120" max="230" step="1" placeholder="e.g. 170">
+        </div>
+
+        <div class="field-group">
+          <label for="weight">Weight (kg)</label>
+          <input id="weight" name="weight" type="number" min="35" max="250" step="0.1" placeholder="e.g. 70">
+        </div>
+      </div>
+
+      <div class="controls-row single-column">
+        <div class="field-group">
+          <label for="activity">Activity Level</label>
+          <select id="activity" name="activity">
+            <option value="1.2">Sedentary</option>
+            <option value="1.375">Lightly active</option>
+            <option value="1.55" selected>Moderately active</option>
+            <option value="1.725">Very active</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="bmiResult" class="bmi-result hidden" aria-live="polite"></div>
+
+      <div class="controls-row single-column">
+        <div class="field-group">
+          <label for="dailyTarget">Daily target (kcal)</label>
+          <input
+            id="dailyTarget"
+            name="dailyTarget"
+            type="number"
+            min="1000"
+            max="3500"
+            step="10"
+            placeholder="Auto-calculated based on your goal"
+          >
+          <p class="hint" id="recommendedTargetText">We’ll suggest a calorie target based on your goal.</p>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="generateBtn" type="button">Generate Plan</button>
+        <button id="savePrefBtn" type="button" class="secondary">Save</button>
+        <button id="clearPrefBtn" type="button" class="secondary">Clear</button>
+      </div>
+      <p class="hint plan-count-hint" id="planCountHint">100+ possible weekly menu combinations</p>
+    </section>
+
+    <div class="day-filter hidden" id="dayFilter">
+      <button class="filter-btn active" data-day="All">All Week</button>
+      <button class="filter-btn" data-day="Monday">Mon</button>
+      <button class="filter-btn" data-day="Tuesday">Tue</button>
+      <button class="filter-btn" data-day="Wednesday">Wed</button>
+      <button class="filter-btn" data-day="Thursday">Thu</button>
+      <button class="filter-btn" data-day="Friday">Fri</button>
+      <button class="filter-btn" data-day="Saturday">Sat</button>
+      <button class="filter-btn" data-day="Sunday">Sun</button>
+    </div>
+
+    <section id="summary" class="summary hidden" aria-live="polite"></section>
+
+    <section id="macroSummary" class="macro-summary hidden" aria-live="polite"></section>
+    <div id="printArea">
+      <section id="planOutput" class="plan-grid"></section>
+      <section id="groceryOutput" class="grocery hidden"></section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>Copyright 2026 Michael Tubel. All rights reserved.</p>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+          .catch(err => console.warn('SW registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
