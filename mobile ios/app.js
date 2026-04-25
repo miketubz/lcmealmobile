@@ -504,7 +504,8 @@ const state = {
   selectedDay: "All",
   customGroceries: [],
   currentPhotoEstimate: null,
-  photoEstimates: []
+  photoEstimates: [],
+  manualFoodItems: []
 };
 
 const PREFERENCES_KEY = "lc_meal_planner_preferences";
@@ -543,6 +544,12 @@ const savePhotoEstimateBtn = document.getElementById("savePhotoEstimateBtn");
 const clearPhotoBtn = document.getElementById("clearPhotoBtn");
 const photoEstimateResultEl = document.getElementById("photoEstimateResult");
 const savedPhotoEstimatesEl = document.getElementById("savedPhotoEstimates");
+const manualPhotoFallbackEl = document.getElementById("manualPhotoFallback");
+const manualFoodInputEl = document.getElementById("manualFoodInput");
+const addManualFoodBtn = document.getElementById("addManualFoodBtn");
+const manualFoodHintEl = document.getElementById("manualFoodHint");
+const manualFoodListEl = document.getElementById("manualFoodList");
+const estimateManualBtn = document.getElementById("estimateManualBtn");
 
 
 const THEME_PREFERENCE_KEY = "lc_meal_planner_theme";
@@ -1520,6 +1527,123 @@ function renderSavedPhotoEstimates() {
   savedPhotoEstimatesEl.innerHTML = `<h4>Saved calorie estimates</h4><ul>${items}</ul>`;
 }
 
+function updateManualFoodHint() {
+  if (!manualFoodHintEl) {
+    return;
+  }
+  manualFoodHintEl.textContent = `${state.manualFoodItems.length}/10 items added.`;
+}
+
+function renderManualFoodList() {
+  if (!manualFoodListEl) {
+    return;
+  }
+
+  if (!state.manualFoodItems.length) {
+    manualFoodListEl.innerHTML = "";
+    updateManualFoodHint();
+    return;
+  }
+
+  manualFoodListEl.innerHTML = state.manualFoodItems
+    .map((item, index) => `<li><span>${item}</span><button type="button" class="secondary manual-food-remove" data-remove-index="${index}">Remove</button></li>`)
+    .join("");
+
+  updateManualFoodHint();
+}
+
+function showManualFallback(message) {
+  if (manualPhotoFallbackEl) {
+    manualPhotoFallbackEl.classList.remove("hidden");
+    manualPhotoFallbackEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  if (message) {
+    showPhotoEstimateMessage(message, true);
+  }
+  renderManualFoodList();
+  if (manualFoodInputEl) {
+    manualFoodInputEl.focus();
+  }
+}
+
+function hideManualFallback() {
+  if (manualPhotoFallbackEl) {
+    manualPhotoFallbackEl.classList.add("hidden");
+  }
+}
+
+function addManualFoodItem() {
+  if (!manualFoodInputEl) {
+    return;
+  }
+
+  const value = manualFoodInputEl.value.trim();
+  if (!value) {
+    return;
+  }
+  if (state.manualFoodItems.length >= 10) {
+    showPhotoEstimateMessage("You can add up to 10 items only.", true);
+    return;
+  }
+
+  state.manualFoodItems.push(value);
+  manualFoodInputEl.value = "";
+  renderManualFoodList();
+}
+
+async function estimateManualFoodItems() {
+  if (!state.manualFoodItems.length) {
+    showPhotoEstimateMessage("Add at least one item first.", true);
+    return;
+  }
+
+  const originalLabel = estimateManualBtn ? estimateManualBtn.textContent : "Estimate From List";
+  if (estimateManualBtn) {
+    estimateManualBtn.disabled = true;
+    estimateManualBtn.textContent = "Estimating...";
+  }
+
+  try {
+    const response = await fetch("/.netlify/functions/analyze-calories", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ manualItems: state.manualFoodItems.slice(0, 10) })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || "Could not estimate from list.");
+    }
+
+    const estimate = {
+      totalCalories: Number(payload.totalCalories) || Number(payload.estimatedCalories) || 0,
+      confidence: Number(payload.confidence),
+      items: Array.isArray(payload.items) ? payload.items : state.manualFoodItems.slice(0, 10),
+      notes: typeof payload.notes === "string" ? payload.notes : ""
+    };
+
+    if (!estimate.totalCalories) {
+      throw new Error("No calorie estimate was returned.");
+    }
+
+    state.currentPhotoEstimate = estimate;
+    renderPhotoEstimateResult(estimate);
+    hideManualFallback();
+    if (savePhotoEstimateBtn) {
+      savePhotoEstimateBtn.disabled = false;
+    }
+  } catch (error) {
+    showPhotoEstimateMessage(error.message || "Manual estimate failed.", true);
+  } finally {
+    if (estimateManualBtn) {
+      estimateManualBtn.disabled = false;
+      estimateManualBtn.textContent = originalLabel;
+    }
+  }
+}
+
 function clearPhotoSelection() {
   if (mealPhotoInputEl) {
     mealPhotoInputEl.value = "";
@@ -1528,6 +1652,12 @@ function clearPhotoSelection() {
     photoFileHintEl.textContent = "No photo selected.";
   }
   state.currentPhotoEstimate = null;
+  state.manualFoodItems = [];
+  if (manualFoodInputEl) {
+    manualFoodInputEl.value = "";
+  }
+  renderManualFoodList();
+  hideManualFallback();
   if (savePhotoEstimateBtn) {
     savePhotoEstimateBtn.disabled = true;
   }
@@ -1617,11 +1747,12 @@ async function analyzePhotoCalories() {
 
     state.currentPhotoEstimate = estimate;
     renderPhotoEstimateResult(estimate);
+    hideManualFallback();
     if (savePhotoEstimateBtn) {
       savePhotoEstimateBtn.disabled = false;
     }
   } catch (error) {
-    showPhotoEstimateMessage(error.message || "Photo analysis failed.", true);
+    showManualFallback(error.message || "Photo estimate is unavailable right now. Add up to 10 food items below, then tap Estimate From List.");
   } finally {
     if (analyzePhotoBtn) {
       analyzePhotoBtn.textContent = originalLabel;
@@ -1760,6 +1891,9 @@ if (mealPhotoInputEl) {
         savePhotoEstimateBtn.disabled = true;
       }
       state.currentPhotoEstimate = null;
+      state.manualFoodItems = [];
+      renderManualFoodList();
+      hideManualFallback();
     } else {
       clearPhotoSelection();
     }
@@ -1782,6 +1916,38 @@ if (savePhotoEstimateBtn) {
 
 if (clearPhotoBtn) {
   clearPhotoBtn.addEventListener("click", clearPhotoSelection);
+}
+
+if (addManualFoodBtn) {
+  addManualFoodBtn.addEventListener("click", addManualFoodItem);
+}
+
+if (manualFoodInputEl) {
+  manualFoodInputEl.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addManualFoodItem();
+    }
+  });
+}
+
+if (manualFoodListEl) {
+  manualFoodListEl.addEventListener("click", (event) => {
+    const removeBtn = event.target.closest("[data-remove-index]");
+    if (!removeBtn) {
+      return;
+    }
+    const index = Number(removeBtn.getAttribute("data-remove-index"));
+    if (!Number.isFinite(index)) {
+      return;
+    }
+    state.manualFoodItems.splice(index, 1);
+    renderManualFoodList();
+  });
+}
+
+if (estimateManualBtn) {
+  estimateManualBtn.addEventListener("click", estimateManualFoodItems);
 }
 
 if (downloadTxtBtn) {
