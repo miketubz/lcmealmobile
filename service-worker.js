@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lc-planner-v1';
+const CACHE_NAME = 'lc-planner-v2';
 const ASSETS = [
   './index.html',
   './app.js',
